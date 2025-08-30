@@ -1,39 +1,84 @@
-# Learning Roadmap for Large Language Models (LLMs)
+# 🚀 LLM Roadmap: From Scratch to State-of-the-Art
 
-## Topics and Progress Tracking
+> **Build, Train, and Deploy Large Language Models — with code in Python, PyTorch, CUDA, and Apple MLX**
 
-- [ ] **Introduction to Large Language Models (LLMs)**
-  - Description: Gain a foundational understanding of what LLMs are, their significance, and their applications.
-  - Resource: [Introduction to Large Language Models](https://developers.google.com/machine-learning/resources/intro-llms)
+This repository is a **hands-on, code-first journey** into the world of Large Language Models (LLMs). Whether you're a student, researcher, or engineer, this roadmap guides you from implementing a **transformer from scratch** to exploring cutting-edge architectures like **Mamba**, **MoE**, and **FlashAttention** — all with runnable code.
 
-- [ ] **Transformer Architecture**
-  - Description: Study the core architecture behind many LLMs, focusing on components like self-attention and positional encoding.
-  - Resource: [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+🎯 **Goal**: Understand LLMs not just as black boxes, but as systems you can **build, optimize, and deploy**.
 
-- [ ] **Self-Attention Mechanism**
-  - Description: Delve into how models weigh the importance of different words in a sequence to capture context.
-  - Resource: [Understanding and Coding the Self-Attention Mechanism of Large Language Models](https://sebastianraschka.com/blog/2023/self-attention-from-scratch.html)
+🔧 **Tech Stack**: Python, PyTorch, CUDA, Triton, C++, MLX (Apple), GGUF, ONNX
 
-- [ ] **Training Large Language Models**
-  - Description: Learn about the processes involved in training LLMs, including data collection, preprocessing, and computational requirements.
-  - Resource: [From bare metal to a 70B model: infrastructure set-up and scripts](https://github.com/facebookresearch/metaseq/tree/main/projects/OPT/chronicles)
+---
 
-- [ ] **Reinforcement Learning in LLMs**
-  - Description: Explore how reinforcement learning is applied to enhance LLMs, focusing on models like DeepSeek-R1.
-  - Resource: [DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning](https://arxiv.org/abs/2501.12948)
+## 📚 Table of Contents
 
-- [ ] **Improving LLM Performance Without Increasing Parameters**
-  - Description: Investigate techniques to enhance model performance efficiently, such as knowledge distillation and quantization.
-  - Resource: [DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model](https://arxiv.org/abs/2405.04434)
+1. [Overview](#-overview)
+2. [Roadmap](#-roadmap)
+3. [Features](#-features)
+4. [Getting Started](#-getting-started)
+5. [Folder Structure](#-folder-structure)
+6. [Requirements](#-requirements)
+7. [Usage](#-usage)
+8. [Contributing](#-contributing)
+9. [License](#-license)
+10. [Acknowledgements](#-acknowledgements)
 
-- [ ] **Advanced Architectures: Mixture of Experts (MoE)**
-  - Description: Understand how MoE architectures can improve model efficiency by activating only relevant parts during inference.
-  - Resource: [Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer](https://arxiv.org/abs/1701.06538)
+---
 
-- [ ] **Practical Implementation and Experimentation**
-  - Description: Gain hands-on experience by implementing components like the self-attention mechanism from scratch.
-  - Resource: [Understanding and Coding the Self-Attention Mechanism of Large Language Models](https://sebastianraschka.com/blog/2023/self-attention-from-scratch.html)
+## 🔍 Overview
 
-- [ ] **Staying Updated with Recent Developments**
-  - Description: Keep abreast of the latest research, models, and techniques in the rapidly evolving field of LLMs.
-  - Resource: [Awesome-LLM: A Curated List of Large Language Models](https://github.com/Hannibal046/Awesome-LLM)
+This repo breaks down the **full stack of LLM development** into digestible, code-driven lessons:
+
+- ✅ **From Scratch**: Implement attention, embeddings, and training loops.
+- ⚙️ **Systems**: Distributed training, quantization, and inference optimization.
+- 🚀 **Cutting-Edge**: MoE, RLHF, FlashAttention, Mamba, and KANs.
+- 💻 **Multi-Backend**: Code examples in **PyTorch**, **CUDA**, and **Apple MLX**.
+
+Each chapter includes:
+- Clear explanations
+- Minimal, readable code
+- Benchmarks and performance tips
+- References to papers and resources
+
+---
+
+## 🗺️ Roadmap
+
+| Chapter | Title | Key Topics | Code Focus |
+|--------|------|-----------|-----------|
+| 01 | [Transformer from Scratch](01_transformer_from_scratch/) | Attention, BPE, Training Loop | NumPy, PyTorch |
+| 02 | [Distributed Training](02_distributed_training/) | DDP, FSDP, Pipeline Parallel | PyTorch, `torch.distributed` |
+| 03 | [RLHF](03_rlhf/) | Reward Modeling, PPO, KL Control | TRL, Custom PPO |
+| 04 | [Efficient Attention](04_efficient_attention/) | FlashAttention, Sparse Attn | CUDA, Triton |
+| 05 | [Emerging Architectures](05_emerging_architectures/) | MoE, Mamba, KANs | PyTorch, SSMs |
+| 06 | [Quantization & Sparsity](06_quantization/) | GGUF, GPTQ, Pruning | `llama.cpp`, `bitsandbytes` |
+| 07 | [Inference Engineering](07_inference_engineering/) | KV Cache, Speculative Decoding | Python, MLX |
+| 08 | [Systems & Deployment](08_deployment/) | ONNX, Triton, FastAPI | Docker, REST API |
+| 09 | [Advanced Topics](09_advanced_topics/) | PAL, Neural ODEs, Self-Improvement | Research ideas |
+| 10 | [Capstone Project](10_capstone/) | Build & Serve Your Mini-GPT | End-to-end pipeline |
+
+---
+
+## 🌟 Features
+
+- ✅ **Code-first learning**: Every concept has a working implementation.
+- 🍏 **Apple MLX support**: Run models efficiently on M1/M2/M3 Macs.
+- ⚡ **CUDA kernels**: Explore optimized attention and linear layers.
+- 📈 **Benchmarks**: Compare speed, memory, and accuracy across methods.
+- 🧪 **Tiny datasets**: Train fast on `tiny-shakespeare` or synthetic data.
+- 🐳 **Docker support**: Reproducible environments.
+- 🤝 **Community-driven**: Contributions welcome!
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.10+
+- PyTorch (with CUDA support if available)
+- Optional: CUDA toolkit, Triton, MLX, Docker
+
+### Clone and Setup
+```bash
+uv pip install -r requirements.txt
+```
