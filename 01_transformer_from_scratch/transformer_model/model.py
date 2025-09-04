@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from typing import Optional
+
 # constructor of the input embeddings
 
 class InputEmbeddings(nn.Module):
@@ -9,12 +11,13 @@ class InputEmbeddings(nn.Module):
     def __init__(self, vocab_size, d_model):   # d_model : dimension of the model
                                                # vocab_size : size of the vocabulary
         super(InputEmbeddings, self).__init__()
+
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.d_model = d_model
 
     def forward(self, x):
-        return self.embedding(x) * torch.sqrt(torch.tensor(self.d_model, dtype=torch.float32))
-    
+        return self.embedding(x.long()) * torch.sqrt(torch.tensor(self.d_model, dtype=torch.float32))
+
 
     # this vector is learned by the model
 
@@ -74,53 +77,69 @@ class FeedForward(nn.Module):
         return x
     
 
-
 class MultiHeadAttentionBlock(nn.Module):
-
-    def __init__(self, d_model, num_heads, dropout):
-        super(MultiHeadAttentionBlock, self).__init__()
+    def __init__(self, d_model: int, num_heads: int, dropout: float = 0.1):
+        super().__init__()
         assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
         self.d_model = d_model
         self.num_heads = num_heads
         self.d_k = d_model // num_heads
 
-        self.linear_q = nn.Linear(d_model, d_model)  # Wq
-        self.linear_k = nn.Linear(d_model, d_model)  # Wk
-        self.linear_v = nn.Linear(d_model, d_model)  # Wv
-        self.linear_out = nn.Linear(d_model, d_model)  # Wo
-        self.dropout = nn.Dropout(dropout)
-        self.scale = 1 / (self.d_k ** 0.5)
-
-
+        self.q_proj = nn.Linear(d_model, d_model)
+        self.k_proj = nn.Linear(d_model, d_model)
+        self.v_proj = nn.Linear(d_model, d_model)
+        self.out    = nn.Linear(d_model, d_model)
+        self.drop   = nn.Dropout(dropout)
 
     @staticmethod
-    def attention(Q, K, V, mask=None, dropout=None):
-        scores = torch.matmul(Q, K.transpose(-2, -1)) * (1 / (K.size(-1) ** 0.5))
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
-        attn_weights = F.softmax(scores, dim=-1)
-        attn_weights = dropout(attn_weights) if dropout is not None else attn_weights
-        return torch.matmul(attn_weights, V), attn_weights
+    def _mask_scores(scores: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
+        # scores: [B,H,T,S]; mask: bool keep-mask, e.g. [B,1,T,S] or [B,1,1,S]
+        if mask is None:
+            return scores
+        if mask.dtype != torch.bool:
+            mask = mask != 0
+        if mask.dim() == 3:
+            mask = mask.unsqueeze(1)               # [B,1,T,S]
+        # Broadcast to [B,H,T,S]
+        return scores.masked_fill(~mask, float("-inf"))
 
     def forward(self, query, key, value, mask=None, return_attn_weights=False):
-        batch_size = query.size(0)
+        # Strictly require [B, T, d_model] at the API boundary to avoid re-splitting
+        assert query.dim() == 3 and key.dim() == 3 and value.dim() == 3, \
+            f"Expected [B,T,d_model], got {query.shape}, {key.shape}, {value.shape}"
 
-        # Linear projections
-        Q = self.linear_q(query).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
-        K = self.linear_k(key).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
-        V = self.linear_v(value).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
+        B, Tq, _ = query.shape
+        Bk, Tk, _ = key.shape
+        assert B == Bk == value.size(0) and Tk == value.size(1)
 
-        # Use the attention method
-        attn_output, attn_weights = self.attention(Q, K, V, mask, self.dropout)
+        # Project then split once: [B,T,d_model] -> [B,H,T,d_k]
+        Q = self.q_proj(query).view(B, Tq, self.num_heads, self.d_k).permute(0, 2, 1, 3).contiguous()
+        K = self.k_proj(key  ).view(B, Tk, self.num_heads, self.d_k).permute(0, 2, 1, 3).contiguous()
+        V = self.v_proj(value).view(B, Tk, self.num_heads, self.d_k).permute(0, 2, 1, 3).contiguous()
 
-        # Concatenate heads and put through final linear layer
-        attn_output = attn_output.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
-        output = self.linear_out(attn_output)
+        assert Q.shape == (B, self.num_heads, Tq, self.d_k), Q.shape
+        assert K.shape == (B, self.num_heads, Tk, self.d_k), K.shape
+        assert V.shape == (B, self.num_heads, Tk, self.d_k), V.shape
 
-        if return_attn_weights:
-            return output, attn_weights
-        return output
-    
+
+        # Dot-product without accidental broadcasting: [B,H,Tq,d_k] x [B,H,Tk,d_k] -> [B,H,Tq,Tk]
+        scores = torch.einsum("bhtd,bhsd->bhts", Q, K) / (self.d_k ** 0.5)
+        scores = self._mask_scores(scores, mask)
+
+        assert scores.dim() == 4 and scores.shape[:2] == (B, self.num_heads), scores.shape
+
+
+        attn = torch.softmax(scores, dim=-1)
+        attn = self.drop(attn)
+        # Context: [B,H,Tq,Tk] x [B,H,Tk,d_k] -> [B,H,Tq,d_k]
+        ctx = torch.einsum("bhts,bhsd->bhtd", attn, V)
+
+        # Merge heads: [B,H,Tq,d_k] -> [B,Tq,d_model]
+        ctx = ctx.permute(0, 2, 1, 3).contiguous().view(B, Tq, self.d_model)
+        out = self.out(ctx)
+
+        return (out, attn) if return_attn_weights else out
+
 
 class ResidualConnection(nn.Module):
 
@@ -221,7 +240,8 @@ class ProjectionLayer(nn.Module):
         self.linear = nn.Linear(d_model, vocab_size)
 
     def forward(self, x):
-        return F.log_softmax(self.linear(x), dim=-1)
+        # return F.log_softmax(self.linear(x), dim=-1)
+        return self.linear(x)
     
 
 class Transformer(nn.Module):

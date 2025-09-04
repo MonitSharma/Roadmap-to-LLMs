@@ -29,7 +29,13 @@ def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_
             break
         decoder_mask = causal_mask(decoder_input.size(1)).type_as(source_mask).to(device)
 
-        decoder_output = model.decode(encoder_output, source_mask, decoder_input, decoder_mask)
+        # decoder_output = model.decode(encoder_output, source_mask, decoder_input, decoder_mask)
+        decoder_output = model.decode(
+            tgt=decoder_input,
+            enc_output=encoder_output,
+            src_mask=source_mask,
+            tgt_mask=decoder_mask
+        )
 
         prob = model.project(decoder_output[:, -1])
 
@@ -93,6 +99,11 @@ def get_ds(config):
     
     ds_raw = load_dataset('opus_books', f'{config["lang_src"]}-{config["lang_tgt"]}')
 
+    # ✅ DEBUG MODE: take only a small subset for fast testing
+    ds_raw["train"] = ds_raw["train"].select(range(100))   # first 100 examples
+    if "validation" in ds_raw:
+        ds_raw["validation"] = ds_raw["validation"].select(range(20))  # first 20 examples
+
     # build tokenizer using the full dataset dict
     tokenizer_src = get_or_build_tokenizer(config, ds_raw, "lang_src")
     tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, "lang_tgt")
@@ -129,7 +140,7 @@ def get_ds(config):
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 
 
-def get_model(config, vocab_src_len, vocab_tgt_len):
+def get_model(config, vocab_src_len, vocab_tgt_len,tokenizer_src, tokenizer_tgt):
     model = build_transformer(
         vocab_src_len,
         vocab_tgt_len,
@@ -141,7 +152,24 @@ def get_model(config, vocab_src_len, vocab_tgt_len):
         config['dropout'] if 'dropout' in config else 0.1,
         config['seq_len']
     )
+
+    model.src_embedding.embedding = nn.Embedding(tokenizer_src.get_vocab_size(), config['d_model'])
+    model.tgt_embedding.embedding = nn.Embedding(tokenizer_tgt.get_vocab_size(), config['d_model'])
+
     return model
+
+
+class NoamScheduler(torch.optim.lr_scheduler._LRScheduler):
+    def __init__(self, optimizer, d_model, warmup_steps=4000, last_epoch=-1):
+        self.d_model = d_model
+        self.warmup_steps = warmup_steps
+        super().__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        step = max(1, self._step_count)
+        scale = (self.d_model ** -0.5) * min(step ** -0.5, step * (self.warmup_steps ** -1.5))
+        return [base_lr * scale for base_lr in self.base_lrs]
+
 
 def train_model(config):
 
@@ -152,11 +180,15 @@ def train_model(config):
 
     train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config)
 
-    model = get_model(config, len(tokenizer_src.get_vocab()), len(tokenizer_tgt.get_vocab())).to(device)
-
+    model = get_model(config, len(tokenizer_src.get_vocab()), len(tokenizer_tgt.get_vocab()), tokenizer_src, tokenizer_tgt).to(device)
     writer = SummaryWriter(log_dir=f"runs/{config['experiment_name']}")
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"], eps=1e-9)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"], eps=1e-9)
+
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=1.0, betas=(0.9, 0.98), eps=1e-9)
+    scheduler = NoamScheduler(optimizer, d_model=config["d_model"], warmup_steps=4000)
+
 
     initial_epoch = 0
     global_step = 0
@@ -169,7 +201,7 @@ def train_model(config):
         global_step = state["global_step"]
 
 
-    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_tgt.token_to_id("[PAD]"), label_smoothing=0.1)
+    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_tgt.token_to_id("[PAD]"))#, label_smoothing=0.1)
 
 
     for epoch in range(initial_epoch, config['num_epochs']):
@@ -184,7 +216,10 @@ def train_model(config):
 
             # run the tensors through the transformer
             encoder_output = model.encode(encoder_input, encoder_mask)
+            # decoder_output = model.decode(decoder_input, encoder_output, encoder_mask, decoder_mask)
+
             decoder_output = model.decode(decoder_input, encoder_output, encoder_mask, decoder_mask)
+
 
             proj_output = model.project(decoder_output)
 
@@ -196,7 +231,10 @@ def train_model(config):
             writer.flush()
 
             loss.backward()
+            # 🔒 Gradient clipping here
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+            scheduler.step()
             optimizer.zero_grad()
             global_step += 1
 
