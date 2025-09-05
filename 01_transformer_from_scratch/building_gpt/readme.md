@@ -53,7 +53,14 @@ $$
 $$\text{Output: } \mathbf{X} = \mathbf{E}_{token}[\mathbf{idx}] + \mathbf{E}_{pos}[0:T] \in \mathbb{R}^{B \times T \times n\_embd}$$
 
 **Example:**
-$$\mathbf{idx} = \begin{bmatrix} [1, 5, 3, 2] \\ [7, 2, 8, 1] \end{bmatrix} \text{ (First and second sequences)}$$
+
+$$
+\mathbf{idx} = \begin{bmatrix}
+1 & 5 & 3 & 2 \\
+7 & 2 & 8 & 1
+\end{bmatrix}
+\quad \text{(First and second sequences)}
+$$
 
 $$\text{After combining token + position embeddings: } \mathbf{X} \in \mathbb{R}^{2 \times 4 \times 384}$$
 
