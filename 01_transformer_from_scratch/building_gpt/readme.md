@@ -37,9 +37,18 @@ The model implements a decoder-only transformer with the following components:
 ### 1. Input Embedding and Positional Encoding
 
 Input tokenization and embedding:
-$$\text{Input: } \mathbf{idx} \in \mathbb{R}^{B \times T} \text{ where } B=\text{batch\_size}, T=\text{block\_size}$$
-$$\text{Token Embedding: } \mathbf{E}_{token} \in \mathbb{R}^{vocab\_size \times n\_embd}$$
-$$\text{Position Embedding: } \mathbf{E}_{pos} \in \mathbb{R}^{block\_size \times n\_embd}$$
+
+$$
+\text{Input: } \mathbf{idx} \in \mathbb{R}^{B \times T} \text{ where } B = \text{batch\_size}, T = \text{block\_size}
+$$
+
+$$
+\text{Token Embedding: } \mathbf{E}_{\text{token}} \in \mathbb{R}^{\text{vocab\_size} \times \text{n\_embd}}
+$$
+
+$$
+\text{Position Embedding: } \mathbf{E}_{\text{pos}} \in \mathbb{R}^{\text{block\_size} \times \text{n\_embd}}
+$$
 
 $$\text{Output: } \mathbf{X} = \mathbf{E}_{token}[\mathbf{idx}] + \mathbf{E}_{pos}[0:T] \in \mathbb{R}^{B \times T \times n\_embd}$$
 
