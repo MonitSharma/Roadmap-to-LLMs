@@ -1,5 +1,12 @@
 ## **Coding a Transformer from Scratch**
 
+1. [Build Transformer from scratch](https://github.com/MonitSharma/Roadmap-to-LLMs/tree/main/01_transformer_from_scratch/transformer_model)
+
+2. [Build GPT from scratch](https://github.com/MonitSharma/Roadmap-to-LLMs/tree/main/01_transformer_from_scratch/building_gpt)
+
+
+---
+
 ![Transformer Architecture](imgs/transformer.png)
 
 Welcome to this hands-on implementation of the **Transformer model** — the foundation of modern large language models (LLMs) like BERT, GPT, and T5.
