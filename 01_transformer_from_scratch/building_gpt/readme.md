@@ -158,8 +158,8 @@ The generation process follows these steps:
 
 1. **Clone the repository:**
 ```bash
-git clone <repository-url>
-cd <repository-name>
+git clone https://github.com/MonitSharma/Roadmap-to-LLMs.git
+cd Roadmap-to-LLMs
 ```
 
 2. **Install dependencies:**
